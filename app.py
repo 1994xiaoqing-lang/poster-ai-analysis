@@ -4,10 +4,12 @@ import google.generativeai as genai
 from PIL import Image
 import json
 import io
+import time  # 引入时间模块，用于防报错
 
 # --- 1. 页面配置 ---
-st.set_page_config(page_title="海报智能归因 (执行指令版)", layout="wide")
-st.title("🚀 裂变海报视觉归因分析台 (执行指令增强版)")
+# 修改点：网页标题改为“个性化海报分析”
+st.set_page_config(page_title="个性化海报分析", layout="wide")
+st.title("🚀 个性化海报分析")
 
 # --- 2. 侧边栏配置 ---
 with st.sidebar:
@@ -15,6 +17,7 @@ with st.sidebar:
     api_key = st.text_input("输入 Google Gemini API Key", type="password")
     
     st.markdown("### 🧠 模型选择")
+    # 默认使用 Gemini 1.5 Flash (速度快，免费额度高)
     model_name = st.text_input(
         "模型名称", 
         value="models/gemini-1.5-flash" 
@@ -32,7 +35,7 @@ col1, col2 = st.columns([1, 2])
 
 with col1:
     st.subheader("📤 素材上传")
-    st.info("💡 提示：系统会自动忽略海报底部的固定信息栏，聚焦分析主视觉设计、模特表现与文案排版。")
+    st.info("💡 提示：系统会自动忽略海报底部的固定信息栏，聚焦分析主视觉设计。")
     uploaded_images = st.file_uploader("1. 上传海报图片", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
     uploaded_data = st.file_uploader("2. 上传业务数据表 (Excel/CSV)", type=['xlsx', 'csv'])
     
@@ -98,10 +101,18 @@ with col2:
         total = len(uploaded_images)
         for idx, img_file in enumerate(uploaded_images):
             status_text.text(f"正在分析 ({idx+1}/{total}): {img_file.name} ...")
+            
+            # --- 核心分析过程 ---
             image = Image.open(img_file)
             result = analyze_image_with_gemini(image, img_file.name, model_name)
+            
             if result:
                 st.session_state.analysis_results.append(result)
+            
+            # --- 🔥 关键修改：强制休息 2 秒，防止报错 ---
+            time.sleep(2)
+            # ---------------------------------------
+
             progress_bar.progress((idx + 1) / total)
         
         status_text.text("✅ 所有海报分析完成！")
@@ -137,6 +148,7 @@ with col2:
                 data_csv = final_df.to_csv(index=False)
                 
                 # --- 关键修改：报告生成的 Prompt ---
+                # 增加了【人物设定固定为8岁】的强约束
                 report_prompt = f"""
                 你是一席首席增长官 (CGO) 兼 创意总监。请根据这份【海报视觉特征-转化数据表】撰写执行报告。
                 
@@ -150,23 +162,25 @@ with col2:
 
                 ### 第二部分：🚀 下一步行动指令 (Actionable Design Briefs)
                 请策划 **3个** 具体的裂变海报主题方案。
-                **要求：每个方案内的图片、元素、文案必须属于同一个主题方向。**
+                
+                ⚠️ **人物设定强制约束**：
+                **所有方案中的【人物设定】必须固定为：8岁左右的小学生（具体的性别、发型、服饰可变，但年龄感必须一致）。**
 
                 #### 方案 A (稳健型 - 复刻高转化特征)
                 * **📸 背景图拍摄/生图提示词**：
-                    * **人物设定**：(例如：一个8岁的女孩，扎着双马尾，穿着红色波点毛衣)
-                    * **场景与光影**：(例如：温暖的室内书桌前，窗外下着雪，暖黄色台灯光)
-                    * **动作与神态**：(例如：双手举着试卷开心地笑，眼神看着镜头)
-                * **✨ 装饰元素建议**：(例如：手绘的金色星星涂鸦，试卷满分印章贴纸，散落的彩带)
-                * **✍️ 推荐文案 (20字内)**：(一句符合该场景和情绪的短文案，例如：“看见孩子的进步，是冬天最暖的礼物！”)
+                    * **人物设定**：(必须是8岁左右孩子，描述其具体的穿着、发型)
+                    * **场景与光影**：(描述具体的环境、光线方向)
+                    * **动作与神态**：(描述具体的动作，如拿书、大笑、奔跑)
+                * **✨ 装饰元素建议**：(例如：涂鸦风格的星星、手绘线条、特定的图标)
+                * **✍️ 推荐文案 (20字内)**：(一句符合该场景和情绪的短文案，例如：“2026，让成长的每一步都算数！”)
 
                 #### 方案 B (创新型 - 尝试新风格)
-                * **📸 背景图拍摄/生图提示词**：(请提供一套全新的、与方案A截然不同的人物、场景、动作描述)
-                * **✨ 装饰元素建议**：(请提供匹配该新风格的元素，如3D图标或极简线条)
+                * **📸 背景图拍摄/生图提示词**：(请提供一套全新的、与方案A截然不同的人物、场景、动作描述，人物仍为8岁)
+                * **✨ 装饰元素建议**：(匹配该新风格的元素)
                 * **✍️ 推荐文案 (20字内)**：(一句配合该新风格的文案)
 
                 #### 方案 C (特定场景/节日型)
-                * **📸 背景图拍摄/生图提示词**：(针对即将到来的节日或特定学习场景的详细画面描述)
+                * **📸 背景图拍摄/生图提示词**：(针对即将到来的节日或特定学习场景的详细画面描述，人物为8岁)
                 * **✨ 装饰元素建议**：(匹配的氛围元素)
                 * **✍️ 推荐文案 (20字内)**：(强相关文案)
                 """
